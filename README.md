@@ -1,11 +1,11 @@
 # Governor's Sandbox
 
-A React-based interactive simulation dashboard for visualizing and managing geopolitical data. This project serves as a sandbox environment for testing governance simulations, sentiment analysis streams, and dimensional metrics.
+A React-based interactive simulation dashboard for visualising and managing geopolitical data. This project serves as a sandbox environment for testing governance simulations, sentiment analysis streams, and dimensional metrics.
 
 ## 🚀 Features
 
 - **Interactive Dashboard**: A central hub for monitoring simulation states.
-- **Real-time Sentiment Stream**: Visualizes incoming data streams with sentiment analysis.
+- **Real-time Sentiment Stream**: Visualises incoming data streams with sentiment analysis.
 - **Dimensional Metrics**: Track various governance dimensions using visual bars.
 - **Simulation Engine**: Powered by a custom `useSimulation` hook for managing state and logic.
 - **Responsive Design**: Built with Tailwind CSS for a modern, adaptive UI.
@@ -67,7 +67,7 @@ GovernorSandbox/
 └── vite.config.js          # Vite configuration
 ```
 
-## 📜 License
+## 📜 Licence
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
