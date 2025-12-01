@@ -1,147 +1,306 @@
-import { useState, useEffect } from 'react';
+// src/hooks/useSimulation.js
+
+import { useState, useEffect, useCallback } from 'react';
+import { EMOTIONS } from '../data/constants';
 
 export const useSimulation = (activeCountry) => {
-  const [phase, setPhase] = useState('briefing'); // briefing, intervention, monitoring, results
-  const [strategy, setStrategy] = useState(null); // 'fragile' or 'antifragile'
-  const [wellbeingScore, setWellbeingScore] = useState(50);
-  const [publicTrust, setPublicTrust] = useState(50);
-  const [vllMessages, setVllMessages] = useState([]);
+  const [cycleStage, setCycleStage] = useState('diagnose');
+  const [completedStages, setCompletedStages] = useState([]);
+  const [strategy, setStrategy] = useState(null);
+  const [wellbeing, setWellbeing] = useState({ ...activeCountry.wellbeing });
+  const [wellbeingChanges, setWellbeingChanges] = useState({});
   const [probes, setProbes] = useState([]);
-  const [timer, setTimer] = useState(0);
+  const [vllMessages, setVllMessages] = useState([]);
+  const [emotionHistory, setEmotionHistory] = useState([]);
+  const [lessons, setLessons] = useState([]);
+  const [cycleCount, setCycleCount] = useState(1);
   const [simulationRunning, setSimulationRunning] = useState(false);
 
-  // Reset simulation when country changes
+  // Calculate aggregate scores
+  const wellbeingScore = Math.round(
+    Object.values(wellbeing).reduce((a, b) => a + b, 0) / 6
+  );
+  
+  const publicTrust = Math.round(
+    (wellbeing.civic * 0.3 + 
+     wellbeing.psychological * 0.2 + 
+     wellbeing.social * 0.3 + 
+     wellbeingScore * 0.2)
+  );
+
+  // Reset when country changes
   useEffect(() => {
-    setPhase('briefing');
+    setCycleStage('diagnose');
+    setCompletedStages([]);
     setStrategy(null);
-    setWellbeingScore(50);
-    setPublicTrust(50);
-    setVllMessages([]);
+    setWellbeing({ ...activeCountry.wellbeing });
+    setWellbeingChanges({});
     setProbes([]);
-    setTimer(0);
+    setVllMessages([]);
+    setEmotionHistory([]);
+    setLessons([]);
+    setCycleCount(1);
     setSimulationRunning(false);
   }, [activeCountry]);
 
-  // Simulation Loop
-  useEffect(() => {
-    let interval;
-    if (simulationRunning) {
-      interval = setInterval(() => {
-        setTimer(t => t + 1);
-        generateNarrativeData();
-      }, 1500);
-    }
-    return () => clearInterval(interval);
-  }, [simulationRunning, timer, strategy, probes, activeCountry]);
-
-  const generateNarrativeData = () => {
-    const time = new Date().toLocaleTimeString();
-    let newMessage = {};
+  // Generate emotion data point based on current state
+  const generateEmotionPoint = useCallback(() => {
+    const baseEmotions = {
+      hope: 30 + (wellbeingScore - 50) * 0.4,
+      fear: 20 - (wellbeingScore - 50) * 0.3,
+      anger: 15 - (publicTrust - 50) * 0.2,
+      belonging: 25 + (wellbeing.social - 50) * 0.3,
+      optimism: 20 + (wellbeingScore - 50) * 0.3,
+      anxiety: 15 - (wellbeing.psychological - 50) * 0.2
+    };
     
-    if (strategy === 'fragile') {
-      // FRAGILE LOGIC: High risk, mostly negative unless lucky
-      const successChance = activeCountry.blueprint.fitScore; 
-      const isSuccess = Math.random() < successChance;
-      
-      if (isSuccess) {
-        newMessage = { timestamp: time, topic: "Mainstream Media", text: "Policy showing surprising early stability.", sentiment: 1 };
-        setWellbeingScore(prev => Math.min(100, prev + 2));
-        setPublicTrust(prev => Math.min(100, prev + 1));
-      } else {
-        const negatives = [
-          "Citizens protesting new mandates in the capital.",
-          "Local leaders feeling ignored by central decision.",
-          "Hashtag #NotMyPolicy trending negatively.",
-          "Confusion reported in rural districts.",
-          "Cultural disconnect citing 'lack of respect'."
-        ];
-        newMessage = { timestamp: time, topic: "Social Sentiment", text: negatives[Math.floor(Math.random() * negatives.length)], sentiment: -1 };
-        setWellbeingScore(prev => Math.max(0, prev - 3));
-        setPublicTrust(prev => Math.max(0, prev - 4));
+    const point = { time: emotionHistory.length };
+    let total = 0;
+    
+    EMOTIONS.forEach(e => {
+      const val = Math.max(5, Math.min(30, baseEmotions[e.key] + (Math.random() - 0.5) * 10));
+      point[e.key] = Math.round(val);
+      total += point[e.key];
+    });
+    
+    // Normalize to 100
+    EMOTIONS.forEach(e => {
+      point[e.key] = Math.round((point[e.key] / total) * 100);
+    });
+    
+    return point;
+  }, [wellbeingScore, publicTrust, wellbeing.social, wellbeing.psychological, emotionHistory.length]);
+
+  // Main simulation loop
+  useEffect(() => {
+    if (!simulationRunning) return;
+
+    const interval = setInterval(() => {
+      const time = new Date().toLocaleTimeString();
+      let newMessage = {};
+      const changes = {};
+
+      if (strategy === 'fragile') {
+        // FRAGILE LOGIC: High risk, mostly negative unless lucky
+        const isSuccess = Math.random() < activeCountry.blueprint.fitScore;
+
+        if (isSuccess) {
+          newMessage = { 
+            timestamp: time, 
+            topic: "Media", 
+            text: "Policy showing early signs of stability.", 
+            sentiment: 1 
+          };
+          Object.keys(wellbeing).forEach(key => {
+            changes[key] = Math.random() < 0.3 ? 1 : 0;
+          });
+        } else {
+          const negatives = [
+            "Mass protests erupting against new mandates.",
+            "Local leaders publicly denouncing central policy.",
+            "#NotMyPolicy trending nationwide.",
+            "Cultural experts warn of 'tone-deaf' approach.",
+            "Opposition calling for immediate policy reversal."
+          ];
+          newMessage = { 
+            timestamp: time, 
+            topic: "Crisis", 
+            text: negatives[Math.floor(Math.random() * negatives.length)], 
+            sentiment: -1 
+          };
+          Object.keys(wellbeing).forEach(key => {
+            changes[key] = Math.random() < 0.5 ? -2 : -1;
+          });
+        }
+      } else if (strategy === 'antifragile') {
+        // ANTI-FRAGILE LOGIC: Mixed results based on probe fit
+        const activeProbes = probes.filter(p => p.status === 'active' || p.status === 'amplified');
+        if (activeProbes.length === 0) return;
+
+        const probe = activeProbes[Math.floor(Math.random() * activeProbes.length)];
+        
+        // Calculate success based on probe fit + bonus if amplified
+        let chance = probe.fit;
+        if (probe.status === 'amplified') chance = Math.min(0.95, chance + 0.15);
+
+        const isGood = Math.random() < chance;
+
+        if (isGood) {
+          const positives = [
+            `Community leaders endorsing ${probe.name}.`,
+            `"This actually works for us" - Local feedback on ${probe.name}.`,
+            `${probe.name} exceeding initial adoption targets.`,
+            `Neighboring districts requesting ${probe.name} expansion.`
+          ];
+          newMessage = { 
+            timestamp: time, 
+            topic: probe.name, 
+            text: positives[Math.floor(Math.random() * positives.length)], 
+            sentiment: 1 
+          };
+          probe.affectedDomains?.forEach(domain => {
+            const gain = probe.status === 'amplified' ? 2 : 1;
+            changes[domain] = gain;
+          });
+        } else {
+          const negatives = [
+            `Minor resistance to ${probe.name} in some areas.`,
+            `${probe.name} facing logistical challenges.`,
+            `Adoption slower than expected for ${probe.name}.`
+          ];
+          newMessage = { 
+            timestamp: time, 
+            topic: probe.name, 
+            text: negatives[Math.floor(Math.random() * negatives.length)], 
+            sentiment: -1 
+          };
+          probe.affectedDomains?.forEach(domain => {
+            changes[domain] = -0.5;
+          });
+        }
       }
-    } else if (strategy === 'antifragile') {
-      // ANTI-FRAGILE LOGIC: Mixed bag, depends on active probes
-      // Pick a random active probe
-      const activeProbes = probes.filter(p => p.status === 'active' || p.status === 'amplified');
-      if (activeProbes.length === 0) return;
 
-      const probe = activeProbes[Math.floor(Math.random() * activeProbes.length)];
+      // Apply changes to wellbeing
+      setWellbeing(prev => {
+        const next = { ...prev };
+        Object.keys(changes).forEach(key => {
+          next[key] = Math.max(0, Math.min(100, prev[key] + changes[key]));
+        });
+        return next;
+      });
       
-      // Calculate success based on probe fit + bonus if amplified
-      let chance = probe.fit;
-      if (probe.status === 'amplified') chance += 0.2;
+      setWellbeingChanges(changes);
+      setVllMessages(prev => [newMessage, ...prev].slice(0, 50));
+      setEmotionHistory(prev => [...prev, generateEmotionPoint()].slice(-30));
+    }, 2000);
 
-      const isGood = Math.random() < chance;
+    return () => clearInterval(interval);
+  }, [simulationRunning, strategy, probes, activeCountry, wellbeing, generateEmotionPoint]);
 
-      if (isGood) {
-         const positives = [
-          `Local community praising ${probe.name}.`,
-          `"Finally something that works for us" - User review regarding ${probe.name}.`,
-          `${probe.name} showing positive ROI in initial data.`,
-          `Neighborhood adoption of ${probe.name} growing.`
-        ];
-        newMessage = { timestamp: time, topic: `Probe: ${probe.name}`, text: positives[Math.floor(Math.random() * positives.length)], sentiment: 1 };
-        // Small gains for normal, big for amplified
-        const gain = probe.status === 'amplified' ? 4 : 1;
-        setWellbeingScore(prev => Math.min(100, prev + gain));
-        setPublicTrust(prev => Math.min(100, prev + gain));
-      } else {
-         const negatives = [
-          `Minor friction reported in ${probe.name} pilot.`,
-          `${probe.name} struggling with adoption in some sectors.`,
-          `Logistical hiccup in ${probe.name}.`
-        ];
-        newMessage = { timestamp: time, topic: `Probe: ${probe.name}`, text: negatives[Math.floor(Math.random() * negatives.length)], sentiment: -1 };
-        // Small losses (safe to fail)
-        setWellbeingScore(prev => Math.max(0, prev - 1));
-        setPublicTrust(prev => Math.max(0, prev - 0.5));
+  // Stage management
+  const advanceStage = useCallback((nextStage) => {
+    setCompletedStages(prev => {
+      if (!prev.includes(cycleStage)) {
+        return [...prev, cycleStage];
       }
-    }
+      return prev;
+    });
+    setCycleStage(nextStage);
+  }, [cycleStage]);
 
-    setVllMessages(prev => [newMessage, ...prev].slice(0, 50));
-  };
-
-  const launchFragile = () => {
+  // Launch fragile (blueprint) strategy
+  const launchFragile = useCallback(() => {
     setStrategy('fragile');
-    setPhase('monitoring');
+    advanceStage('monitor');
     setSimulationRunning(true);
-    setVllMessages([{timestamp: "NOW", topic: "System", text: `DEPLOYING BLUEPRINT: ${activeCountry.blueprint.name}`, sentiment: 0}]);
-  };
+    setVllMessages([{
+      timestamp: "SYSTEM",
+      topic: "ALERT",
+      text: `DEPLOYING BLUEPRINT: ${activeCountry.blueprint.name}`,
+      sentiment: 0
+    }]);
+  }, [activeCountry.blueprint.name, advanceStage]);
 
-  const launchAntiFragile = () => {
+  // Launch anti-fragile (probes) strategy
+  const launchAntiFragile = useCallback(() => {
     setStrategy('antifragile');
-    setProbes(activeCountry.probes); // Load probes
-    setPhase('monitoring');
+    setProbes(activeCountry.probes.map(p => ({ ...p, status: 'active' })));
+    advanceStage('monitor');
     setSimulationRunning(true);
-    setVllMessages([{timestamp: "NOW", topic: "System", text: `DEPLOYING 3 SAFE-TO-FAIL PROBES...`, sentiment: 0}]);
-  };
+    setVllMessages([{
+      timestamp: "SYSTEM",
+      topic: "DEPLOY",
+      text: `Launching ${activeCountry.probes.length} safe-to-fail probes...`,
+      sentiment: 0
+    }]);
+  }, [activeCountry.probes, advanceStage]);
 
-  const manageProbe = (id, action) => {
+  // Manage probe (retire or amplify)
+  const manageProbe = useCallback((id, action) => {
+    const probe = probes.find(p => p.id === id);
+    
     setProbes(prev => prev.map(p => {
       if (p.id !== id) return p;
-      if (action === 'retire') return { ...p, status: 'retired' };
-      if (action === 'amplify') return { ...p, status: 'amplified' };
-      return p;
+      return { ...p, status: action === 'retire' ? 'retired' : 'amplified' };
     }));
-    
-    if (action === 'retire') {
-       setVllMessages(prev => [{timestamp: "SYSTEM", topic: "Controller", text: `Retiring probe. Learning captured. Failure contained.`, sentiment: 1}, ...prev]);
+
+    if (action === 'retire' && probe) {
+      // Capture lesson from retired probe
+      setLessons(prev => [...prev, { 
+        source: probe.name, 
+        text: probe.lesson 
+      }]);
+      setVllMessages(prev => [{
+        timestamp: "SYSTEM",
+        topic: "LEARNING",
+        text: `Probe retired. Lesson captured: "${probe.lesson.substring(0, 50)}..."`,
+        sentiment: 0
+      }, ...prev]);
+    } else if (action === 'amplify') {
+      setVllMessages(prev => [{
+        timestamp: "SYSTEM",
+        topic: "SCALING",
+        text: `Resources reallocated to amplify ${probe?.name}. Monitoring intensified.`,
+        sentiment: 1
+      }, ...prev]);
     }
-    if (action === 'amplify') {
-       setVllMessages(prev => [{timestamp: "SYSTEM", topic: "Controller", text: `Amplifying successful probe. Resources reallocated.`, sentiment: 1}, ...prev]);
-    }
-  };
+  }, [probes]);
+
+  // Start new cycle
+  const startNewCycle = useCallback(() => {
+    setCycleCount(prev => prev + 1);
+    setCycleStage('diagnose');
+    setCompletedStages([]);
+    setStrategy(null);
+    setSimulationRunning(false);
+    // Keep wellbeing, lessons, and some history
+    setVllMessages(prev => [{
+      timestamp: "SYSTEM",
+      topic: "CYCLE",
+      text: `Starting Cycle ${cycleCount + 1}. Previous lessons retained.`,
+      sentiment: 0
+    }, ...prev.slice(0, 10)]);
+  }, [cycleCount]);
+
+  // Reset simulation (for country change)
+  const resetSimulation = useCallback(() => {
+    setCycleStage('diagnose');
+    setCompletedStages([]);
+    setStrategy(null);
+    setWellbeing({ ...activeCountry.wellbeing });
+    setWellbeingChanges({});
+    setProbes([]);
+    setVllMessages([]);
+    setEmotionHistory([]);
+    setLessons([]);
+    setCycleCount(1);
+    setSimulationRunning(false);
+  }, [activeCountry.wellbeing]);
 
   return {
-    phase,
+    // State
+    cycleStage,
+    completedStages,
     strategy,
+    wellbeing,
+    wellbeingChanges,
     wellbeingScore,
     publicTrust,
-    vllMessages,
     probes,
+    vllMessages,
+    emotionHistory,
+    lessons,
+    cycleCount,
     simulationRunning,
+    
+    // Actions
+    advanceStage,
     launchFragile,
     launchAntiFragile,
-    manageProbe
+    manageProbe,
+    startNewCycle,
+    resetSimulation
   };
 };
+
+export default useSimulation;

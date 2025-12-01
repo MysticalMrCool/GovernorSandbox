@@ -1,234 +1,380 @@
-import React, { useState } from 'react';
-import { Shield, AlertTriangle, TrendingUp, Users, Activity, XCircle, CheckCircle, Play, BarChart3, Globe } from 'lucide-react';
-import { COUNTRIES } from '../data/countries';
-import DimensionBar from './ui/DimensionBar';
-import SentimentStream from './ui/SentimentStream';
+// src/components/GovernorSandbox.jsx
+
+import React, { useState, useCallback } from 'react';
+import { 
+  Shield, AlertTriangle, TrendingUp, Activity, Heart,
+  ChevronRight, RotateCcw, Lightbulb, Target, Settings, RefreshCw
+} from 'lucide-react';
+
+import { 
+  WorldMap, 
+  CycleNavigator, 
+  WellbeingRadar, 
+  EmotionTrendChart,
+  EmotionLegend,
+  SentimentStream, 
+  ProbeCard, 
+  LessonsPanel 
+} from './ui';
+
+import COUNTRIES from '../data/countries';
 import { useSimulation } from '../hooks/useSimulation';
 
-export default function GovernorSandbox() {
+const GovernorSandbox = () => {
   const [activeCountry, setActiveCountry] = useState(COUNTRIES.Japan);
   
   const {
-    phase,
+    cycleStage,
+    completedStages,
     strategy,
+    wellbeing,
     wellbeingScore,
     publicTrust,
-    vllMessages,
     probes,
+    vllMessages,
+    emotionHistory,
+    lessons,
+    cycleCount,
+    simulationRunning,
+    advanceStage,
     launchFragile,
     launchAntiFragile,
-    manageProbe
+    manageProbe,
+    startNewCycle,
+    resetSimulation
   } = useSimulation(activeCountry);
 
-  const selectCountry = (c) => {
-    setActiveCountry(c);
-  };
+  const selectCountry = useCallback((country) => {
+    setActiveCountry(country);
+    resetSimulation();
+  }, [resetSimulation]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
+    <div className="min-h-screen bg-slate-950 text-white">
       {/* HEADER */}
-      <header className="bg-indigo-900 text-white p-4 shadow-lg flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <Shield className="text-teal-400" />
-          <div>
-            <h1 className="text-xl font-bold tracking-wider">GOVERNOR'S SANDBOX</h1>
-            <p className="text-xs text-indigo-200">Anti-Fragile Policy Simulator // V 1.0</p>
-          </div>
-        </div>
-        <div className="flex gap-6 text-sm">
-          <div className="flex flex-col items-end">
-            <span className="text-indigo-300 uppercase text-xs">Well-Being Index</span>
-            <span className={`font-bold text-xl ${wellbeingScore < 40 ? 'text-red-400' : 'text-teal-400'}`}>{Math.round(wellbeingScore)}</span>
-          </div>
-           <div className="flex flex-col items-end">
-            <span className="text-indigo-300 uppercase text-xs">Public Trust</span>
-            <span className={`font-bold text-xl ${publicTrust < 40 ? 'text-red-400' : 'text-teal-400'}`}>{Math.round(publicTrust)}%</span>
+      <header className="bg-slate-900/90 backdrop-blur-sm border-b border-slate-800 sticky top-0 z-50">
+        <div className="max-w-[1800px] mx-auto px-6 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center">
+                <Shield className="text-indigo-400" size={26} />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold tracking-tight">Anti-Fragile Well-Being</h1>
+                <p className="text-slate-500 text-xs">Cultural Systems Framework for Adaptive Policy</p>
+              </div>
+            </div>
+            
+            <CycleNavigator currentStage={cycleStage} completedStages={completedStages} />
+            
+            <div className="flex items-center gap-4">
+              <div className="text-center px-4 py-2 bg-slate-800 rounded-lg">
+                <div className="text-[10px] text-slate-500 uppercase">Cycle</div>
+                <div className="text-xl font-bold text-indigo-400">{cycleCount}</div>
+              </div>
+              <div className="text-center px-4 py-2 bg-slate-800 rounded-lg">
+                <div className="text-[10px] text-slate-500 uppercase">Well-Being</div>
+                <div className={`text-xl font-bold ${wellbeingScore < 40 ? 'text-red-400' : 'text-emerald-400'}`}>
+                  {wellbeingScore}
+                </div>
+              </div>
+              <div className="text-center px-4 py-2 bg-slate-800 rounded-lg">
+                <div className="text-[10px] text-slate-500 uppercase">Trust</div>
+                <div className={`text-xl font-bold ${publicTrust < 40 ? 'text-red-400' : 'text-emerald-400'}`}>
+                  {publicTrust}%
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto p-6">
+      {/* WORLD MAP */}
+      <div className="relative">
+        <WorldMap
+          activeCountry={activeCountry}
+          onSelectCountry={selectCountry}
+          disabled={simulationRunning}
+        />
         
-        {/* COUNTRY SELECTOR */}
-        {phase === 'briefing' && (
-          <div className="mb-8">
-            <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><Globe size={18}/> SELECT JURISDICTION</h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {Object.values(COUNTRIES).map(country => (
-                <button 
-                  key={country.id}
-                  onClick={() => selectCountry(country)}
-                  className={`p-4 rounded-lg border-2 transition-all text-left relative overflow-hidden
-                    ${activeCountry.id === country.id ? 'border-indigo-600 bg-indigo-50 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-indigo-300 bg-white'}
-                  `}
-                >
-                  <div className="text-4xl mb-2">{country.flag}</div>
-                  <div className="font-bold text-lg">{country.name}</div>
-                  <div className="text-xs text-slate-500 mt-1 uppercase tracking-widest">Case Study</div>
-                </button>
+        {/* Floating Country Panel */}
+        <div className="absolute top-4 left-4 w-80 bg-slate-900/95 backdrop-blur-md rounded-xl border border-slate-700 shadow-2xl overflow-hidden">
+          <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 px-4 py-3 flex items-center gap-3">
+            <span className="text-3xl">{activeCountry.flag}</span>
+            <div>
+              <h2 className="font-bold text-lg">{activeCountry.name}</h2>
+              <p className="text-indigo-200 text-xs">{activeCountry.stressor}</p>
+            </div>
+          </div>
+          <div className="p-4">
+            <p className="text-xs text-slate-400 italic mb-3">"{activeCountry.context}"</p>
+            
+            <div className="grid grid-cols-6 gap-2 mb-4">
+              {Object.entries(activeCountry.dimensions).map(([key, value]) => (
+                <div key={key} className="text-center">
+                  <div className="text-[10px] text-slate-500">{key}</div>
+                  <div className="text-sm font-bold text-white">{value}</div>
+                </div>
               ))}
             </div>
+            
+            {cycleStage === 'diagnose' && (
+              <button 
+                onClick={() => advanceStage('analyze')} 
+                className="w-full bg-indigo-500 hover:bg-indigo-600 text-white py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all"
+              >
+                Begin Analysis <ChevronRight size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Floating Well-being Panel */}
+        <div className="absolute top-4 right-4 w-72 bg-slate-900/95 backdrop-blur-md rounded-xl border border-slate-700 shadow-2xl">
+          <div className="px-4 py-2 border-b border-slate-700 flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-400 uppercase flex items-center gap-2">
+              <Heart size={12} className="text-red-400" /> Well-Being Domains
+            </h3>
+            <span className={`text-lg font-bold ${wellbeingScore < 40 ? 'text-red-400' : 'text-emerald-400'}`}>
+              {wellbeingScore}
+            </span>
+          </div>
+          <WellbeingRadar data={wellbeing} />
+        </div>
+
+        {/* Crisis Alert */}
+        {(cycleStage === 'diagnose' || cycleStage === 'analyze') && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-red-500/20 backdrop-blur-sm border border-red-500/50 rounded-lg px-6 py-2 flex items-center gap-3">
+            <AlertTriangle className="text-red-400" size={18} />
+            <span className="text-red-300 text-sm font-medium">{activeCountry.stressorDetail}</span>
           </div>
         )}
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* MAIN CONTENT */}
+      <main className="max-w-[1800px] mx-auto px-6 py-6">
+        <div className="grid grid-cols-12 gap-6">
           
-          {/* LEFT PANEL: CONTEXT */}
-          <div className="lg:col-span-1 space-y-6">
+          {/* LEFT - Context */}
+          <div className="col-span-3 space-y-4">
+            {(cycleStage === 'analyze' || cycleStage === 'design') && (
+              <div className="bg-slate-900 rounded-xl border border-slate-800 p-4">
+                <h3 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
+                  <Settings size={12} /> Cultural Insights
+                </h3>
+                <div className="space-y-2">
+                  {activeCountry.culturalInsights.map((insight, idx) => (
+                    <div key={idx} className="flex items-start gap-2 text-xs text-slate-300 bg-slate-800/50 rounded p-2">
+                      <Lightbulb size={12} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                      {insight}
+                    </div>
+                  ))}
+                </div>
+                {cycleStage === 'analyze' && (
+                  <button 
+                    onClick={() => advanceStage('design')} 
+                    className="w-full mt-4 bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2"
+                  >
+                    Design Intervention <ChevronRight size={14} />
+                  </button>
+                )}
+              </div>
+            )}
             
-            {/* HOFSTEDE CARD */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-              <h3 className="text-sm font-bold text-slate-400 uppercase mb-4 flex items-center gap-2">
-                <BarChart3 size={16}/> Cultural Levers ({activeCountry.id})
-              </h3>
-              <div className="space-y-3">
-                <DimensionBar label="Power Distance (PDI)" value={activeCountry.dimensions.PDI} color="bg-blue-500" />
-                <DimensionBar label="Individualism (IDV)" value={activeCountry.dimensions.IDV} color="bg-purple-500" />
-                <DimensionBar label="Uncertainty Avoidance (UAI)" value={activeCountry.dimensions.UAI} color="bg-red-500" />
-                <DimensionBar label="Long Term Orient. (LTO)" value={activeCountry.dimensions.LTO} color="bg-teal-500" />
+            {lessons.length > 0 && (
+              <div className="bg-slate-900 rounded-xl border border-slate-800 p-4">
+                <h3 className="text-xs font-bold text-amber-400 uppercase mb-3 flex items-center gap-2">
+                  <Lightbulb size={12} /> Lessons Learned ({lessons.length})
+                </h3>
+                <LessonsPanel lessons={lessons} />
               </div>
-              <div className="mt-4 p-3 bg-slate-100 rounded text-xs text-slate-600 italic leading-relaxed">
-                "{activeCountry.context}"
-              </div>
-            </div>
-
-            {/* STRESSOR CARD */}
-            <div className="bg-orange-50 p-6 rounded-xl shadow-sm border border-orange-100">
-               <h3 className="text-sm font-bold text-orange-800 uppercase mb-2 flex items-center gap-2">
-                <AlertTriangle size={16}/> Active Crisis
-              </h3>
-              <p className="text-lg font-bold text-slate-800 mb-2">{activeCountry.stressor}</p>
-              <p className="text-sm text-slate-600">Public sentiment is deteriorating. Immediate intervention required to stabilize well-being metrics.</p>
-            </div>
-
+            )}
           </div>
 
-          {/* CENTER/RIGHT PANEL: ACTION & SIMULATION */}
-          <div className="lg:col-span-2 space-y-6">
-            
-            {/* PHASE 1: INTERVENTION SELECTION */}
-            {phase === 'briefing' && (
-              <div className="bg-white p-8 rounded-xl shadow-md border border-slate-200 text-center">
-                <h2 className="text-2xl font-bold mb-6 text-slate-800">Choose Policy Approach</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* CENTER - Main */}
+          <div className="col-span-6 space-y-4">
+            {/* DESIGN STAGE */}
+            {cycleStage === 'design' && (
+              <div className="bg-slate-900 rounded-xl border border-slate-800 p-6">
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                  <Target className="text-amber-400" size={20} />
+                  Choose Policy Approach
+                </h2>
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Fragile Option */}
+                  <button 
+                    onClick={launchFragile} 
+                    className="group rounded-xl border-2 border-slate-700 p-5 hover:border-red-500 hover:bg-red-500/5 text-left transition-all relative"
+                  >
+                    <div className="absolute top-2 right-2 text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-bold">
+                      FRAGILE
+                    </div>
+                    <div className="text-4xl mb-3">🏗️</div>
+                    <h3 className="text-lg font-bold group-hover:text-red-400">The Blueprint</h3>
+                    <p className="text-xs text-slate-500 mt-1 mb-3">Massive top-down solution</p>
+                    <div className="bg-slate-800 rounded-lg p-3 mb-3">
+                      <div className="text-[10px] text-slate-500">PROPOSAL</div>
+                      <div className="text-sm font-medium">{activeCountry.blueprint.name}</div>
+                    </div>
+                    <div className="text-[10px] text-red-400">{activeCountry.blueprint.whyBad}</div>
+                    <div className="mt-3 text-xs text-red-400 font-bold flex items-center gap-1">
+                      <AlertTriangle size={12} /> Cultural Fit: {Math.round(activeCountry.blueprint.fitScore * 100)}%
+                    </div>
+                  </button>
                   
-                  {/* OPTION A: FRAGILE */}
-                  <button onClick={launchFragile} className="group relative overflow-hidden rounded-xl border-2 border-slate-200 p-6 hover:border-red-400 hover:bg-red-50 transition-all text-left">
-                    <div className="absolute top-0 right-0 bg-slate-200 text-slate-600 text-xs px-2 py-1 rounded-bl font-bold">TRADITIONAL</div>
-                    <div className="text-4xl mb-4 grayscale group-hover:grayscale-0">🏗️</div>
-                    <h3 className="text-xl font-bold text-slate-800 group-hover:text-red-700">The Blueprint</h3>
-                    <p className="text-sm text-slate-500 mt-2 mb-4">Launch a massive, definitive solution. High cost, locked-in scope.</p>
-                    <div className="bg-white p-3 rounded border border-slate-200 text-xs font-mono text-slate-600">
-                      <span className="font-bold block mb-1">PROPOSAL:</span>
-                      {activeCountry.blueprint.name}
+                  {/* Anti-Fragile Option */}
+                  <button 
+                    onClick={launchAntiFragile} 
+                    className="group rounded-xl border-2 border-indigo-500/50 p-5 hover:border-indigo-500 hover:bg-indigo-500/5 text-left transition-all ring-1 ring-indigo-500/20 relative"
+                  >
+                    <div className="absolute top-2 right-2 text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded font-bold">
+                      ADAPTIVE
                     </div>
-                    <div className="mt-4 text-xs font-bold text-red-500 flex items-center gap-1">
-                      <AlertTriangle size={12}/> RISK: HIGH
+                    <div className="text-4xl mb-3">🌱</div>
+                    <h3 className="text-lg font-bold group-hover:text-indigo-400">Anti-Fragile Probes</h3>
+                    <p className="text-xs text-slate-500 mt-1 mb-3">Safe to fail, fast to learn</p>
+                    <div className="bg-slate-800 rounded-lg p-3 mb-3">
+                      <div className="text-[10px] text-slate-500">PROBES</div>
+                      {activeCountry.probes.map(p => (
+                        <div key={p.id} className="flex items-center gap-2 text-sm">
+                          <span className={`w-2 h-2 rounded-full ${p.fit > 0.7 ? 'bg-green-500' : 'bg-amber-500'}`} />
+                          {p.name}
+                        </div>
+                      ))}
                     </div>
-                  </button>
-
-                  {/* OPTION B: ANTI-FRAGILE */}
-                  <button onClick={launchAntiFragile} className="group relative overflow-hidden rounded-xl border-2 border-indigo-100 p-6 hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left ring-1 ring-indigo-50">
-                     <div className="absolute top-0 right-0 bg-indigo-100 text-indigo-600 text-xs px-2 py-1 rounded-bl font-bold">ADAPTIVE</div>
-                     <div className="text-4xl mb-4 grayscale group-hover:grayscale-0">🌱</div>
-                    <h3 className="text-xl font-bold text-slate-800 group-hover:text-indigo-700">Anti-Fragile Probes</h3>
-                    <p className="text-sm text-slate-500 mt-2 mb-4">Launch small, parallel experiments. Learn from failure, amplify success.</p>
-                     <div className="bg-white p-3 rounded border border-slate-200 text-xs font-mono text-slate-600">
-                      <span className="font-bold block mb-1">PROPOSALS:</span>
-                      <ul className="list-disc pl-4">
-                        {activeCountry.probes.map(p => <li key={p.id}>{p.name}</li>)}
-                      </ul>
-                    </div>
-                    <div className="mt-4 text-xs font-bold text-indigo-500 flex items-center gap-1">
-                      <TrendingUp size={12}/> UPSIDE: UNLIMITED
+                    <div className="text-[10px] text-green-400">Failures contained, successes scale</div>
+                    <div className="mt-3 text-xs text-indigo-400 font-bold flex items-center gap-1">
+                      <TrendingUp size={12} /> Avg Fit: {Math.round(activeCountry.probes.reduce((a, p) => a + p.fit, 0) / activeCountry.probes.length * 100)}%
                     </div>
                   </button>
-
                 </div>
               </div>
             )}
 
-            {/* PHASE 2: MONITORING DASHBOARD */}
-            {phase === 'monitoring' && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                
-                {/* HEADER FOR DASHBOARD */}
-                <div className="flex justify-between items-end">
-                   <div>
-                     <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                       {strategy === 'fragile' ? <span className="text-red-600">⚠️ BLUEPRINT DEPLOYED</span> : <span className="text-indigo-600">⚡ ACTIVE PROBES</span>}
-                     </h2>
-                     <p className="text-sm text-slate-500">Monitoring VLL Narrative Feedback...</p>
-                   </div>
-                   <button onClick={() => selectCountry(activeCountry)} className="text-sm text-slate-400 hover:text-slate-700 underline">Reset Simulation</button>
+            {/* MONITOR STAGE */}
+            {cycleStage === 'monitor' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    <Activity className={strategy === 'fragile' ? 'text-red-400' : 'text-green-400'} size={20} />
+                    {strategy === 'fragile' ? 'Blueprint Deployed' : 'Probes Active'}
+                  </h2>
+                  <button 
+                    onClick={() => advanceStage('refine')} 
+                    className="bg-indigo-500 hover:bg-indigo-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2"
+                  >
+                    Proceed to Refine <ChevronRight size={14} />
+                  </button>
                 </div>
-
-                {/* PROBE CONTROLS (ONLY FOR ANTI-FRAGILE) */}
+                
                 {strategy === 'antifragile' && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-3 gap-3">
                     {probes.map(probe => (
-                      <div key={probe.id} className={`
-                        p-4 rounded-lg border-2 relative transition-all duration-500
-                        ${probe.status === 'retired' ? 'border-slate-100 bg-slate-50 opacity-50 scale-95' : ''}
-                        ${probe.status === 'amplified' ? 'border-green-500 bg-green-50 ring-2 ring-green-200 scale-105' : ''}
-                        ${probe.status === 'active' ? 'border-indigo-200 bg-white' : ''}
-                      `}>
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-bold text-sm">{probe.name}</h4>
-                          {probe.status === 'active' && <span className="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded-full">TESTING</span>}
-                          {probe.status === 'retired' && <span className="bg-slate-200 text-slate-600 text-[10px] px-2 py-0.5 rounded-full">RETIRED</span>}
-                          {probe.status === 'amplified' && <span className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full">SCALING</span>}
-                        </div>
-                        <p className="text-xs text-slate-500 mb-4 h-8 leading-tight">{probe.desc}</p>
-                        
-                        {/* CULTURAL FIT INDICATOR (HIDDEN INITIALLY, REVEALED BY NARRATIVE) */}
-                        <div className="mb-4">
-                          <div className="text-[10px] uppercase text-slate-400 font-bold mb-1">Projected Fit</div>
-                          <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                             <div className={`h-full ${probe.fit > 0.7 ? 'bg-green-400' : 'bg-red-400'}`} style={{width: `${probe.fit * 100}%`}}></div>
-                          </div>
-                        </div>
-
-                        {probe.status === 'active' && (
-                          <div className="flex gap-2">
-                             <button onClick={() => manageProbe(probe.id, 'retire')} className="flex-1 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-xs py-2 rounded font-bold flex justify-center items-center gap-1">
-                               <XCircle size={12}/> CUT
-                             </button>
-                             <button onClick={() => manageProbe(probe.id, 'amplify')} className="flex-1 bg-indigo-600 text-white hover:bg-indigo-700 text-xs py-2 rounded font-bold flex justify-center items-center gap-1 shadow-md hover:shadow-lg transition-all">
-                               <CheckCircle size={12}/> AMPLIFY
-                             </button>
-                          </div>
-                        )}
-                      </div>
+                      <ProbeCard 
+                        key={probe.id} 
+                        probe={probe} 
+                        onManage={manageProbe} 
+                        showActions={false} 
+                      />
                     ))}
                   </div>
                 )}
-
-                {/* BLUEPRINT STATUS (ONLY FOR FRAGILE) */}
+                
                 {strategy === 'fragile' && (
-                   <div className={`p-6 rounded-xl border-2 ${wellbeingScore < 40 ? 'border-red-500 bg-red-50' : 'border-slate-200 bg-white'}`}>
-                      <div className="flex items-center gap-4 mb-4">
-                        <div className="text-3xl">🏗️</div>
-                        <div>
-                          <h3 className="font-bold text-lg">{activeCountry.blueprint.name}</h3>
-                          <p className="text-sm text-slate-600">Status: {wellbeingScore < 40 ? "CRITICAL FAILURE" : "OPERATIONAL"}</p>
+                  <div className={`rounded-xl p-4 border-2 ${wellbeingScore < 40 ? 'border-red-500 bg-red-500/10' : 'border-slate-700 bg-slate-800'}`}>
+                    <div className="flex items-center gap-3">
+                      <span className="text-4xl">🏗️</span>
+                      <div>
+                        <div className="font-bold">{activeCountry.blueprint.name}</div>
+                        <div className={`text-sm ${wellbeingScore < 40 ? 'text-red-400' : 'text-slate-400'}`}>
+                          {wellbeingScore < 40 ? '⚠️ CRITICAL FAILURE' : 'Under stress'}
                         </div>
                       </div>
-                      <div className="bg-white/50 p-4 rounded text-sm font-mono">
-                        <span className="font-bold">SYSTEM ALERT:</span> {wellbeingScore < 40 ? "Policy rejected by cultural immune system. Resistance widespread." : "Policy accepted, but cost of failure remains high."}
-                      </div>
-                   </div>
+                    </div>
+                  </div>
                 )}
-
-                {/* VLL FEED */}
-                <SentimentStream messages={vllMessages} />
-
               </div>
             )}
 
+            {/* REFINE STAGE */}
+            {cycleStage === 'refine' && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <RefreshCw className="text-teal-400" size={20} />
+                  Refine, Replicate, or Retire
+                </h2>
+                
+                {strategy === 'antifragile' && (
+                  <div className="grid grid-cols-3 gap-3">
+                    {probes.map(probe => (
+                      <ProbeCard 
+                        key={probe.id} 
+                        probe={probe} 
+                        onManage={manageProbe} 
+                        showActions={true} 
+                      />
+                    ))}
+                  </div>
+                )}
+                
+                {strategy === 'fragile' && (
+                  <div className={`rounded-xl p-6 text-center ${wellbeingScore < 40 ? 'bg-red-500/10 border border-red-500/30' : 'bg-amber-500/10 border border-amber-500/30'}`}>
+                    <div className="text-5xl mb-3">{wellbeingScore < 40 ? '💥' : '⚠️'}</div>
+                    <h3 className={`text-xl font-bold ${wellbeingScore < 40 ? 'text-red-400' : 'text-amber-400'}`}>
+                      {wellbeingScore < 40 ? 'Blueprint Failed' : 'Blueprint Struggling'}
+                    </h3>
+                    <p className="text-sm text-slate-400 mt-2">
+                      {wellbeingScore < 40 ? 'Consider adaptive probes next cycle.' : 'Policy holding with friction.'}
+                    </p>
+                  </div>
+                )}
+                
+                <button 
+                  onClick={startNewCycle} 
+                  className="w-full bg-teal-500 hover:bg-teal-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2"
+                >
+                  <RotateCcw size={16} /> Start Cycle {cycleCount + 1}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT - VLL */}
+          <div className="col-span-3 space-y-4">
+            {simulationRunning && (
+              <>
+                <div className="bg-slate-900 rounded-xl border border-slate-800 p-4">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase mb-2 flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Activity size={12} className="text-green-400" /> VLL Emotions
+                    </span>
+                    <span className="animate-pulse text-red-500 text-[10px]">● LIVE</span>
+                  </h3>
+                  <EmotionTrendChart data={emotionHistory} />
+                  <EmotionLegend />
+                </div>
+                
+                <div className="bg-slate-900 rounded-xl border border-slate-800 p-4">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase mb-2 flex items-center justify-between">
+                    Narrative Feed
+                    <span className="animate-pulse text-green-500 text-[10px]">● STREAMING</span>
+                  </h3>
+                  <SentimentStream messages={vllMessages} />
+                </div>
+              </>
+            )}
+            
+            {!simulationRunning && cycleStage !== 'design' && (
+              <div className="bg-slate-900 rounded-xl border border-slate-800 p-8 text-center">
+                <Activity className="mx-auto text-slate-700 mb-3" size={36} />
+                <p className="text-slate-600 text-sm">VLL feed activates on deployment</p>
+              </div>
+            )}
           </div>
         </div>
       </main>
     </div>
   );
-}
+};
+
+export default GovernorSandbox;

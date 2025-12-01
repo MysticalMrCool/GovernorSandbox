@@ -1,12 +1,10 @@
+// src/App.jsx
+
 import React from 'react';
 import GovernorSandbox from './components/GovernorSandbox';
 
 function App() {
-  return (
-    <div className="min-h-screen bg-gray-100">
-      <GovernorSandbox />
-    </div>
-  );
+  return <GovernorSandbox />;
 }
 
 export default App;
