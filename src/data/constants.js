@@ -29,8 +29,81 @@ export const EMOTIONS = [
   { key: 'anxiety', color: '#eab308' }
 ];
 
+// Evidence confidence levels for probes
+export const CONFIDENCE_LEVELS = {
+  high: {
+    label: 'High Confidence',
+    description: 'Based on RCTs, meta-analyses, or well-established WHO/government statistics',
+    color: '#22c55e',
+    multiplier: 1.0
+  },
+  medium: {
+    label: 'Medium Confidence', 
+    description: 'Based on observational studies, expert reports, or regional data',
+    color: '#f59e0b',
+    multiplier: 0.85
+  },
+  low: {
+    label: 'Low Confidence',
+    description: 'Based on estimates, limited studies, or extrapolated data',
+    color: '#ef4444',
+    multiplier: 0.7
+  }
+};
+
+// Timeline simulation settings
+export const SIMULATION_SETTINGS = {
+  monthsPerQuarter: 3,
+  quartersPerYear: 4,
+  defaultLagMonths: 6,
+  riskCheckInterval: 3, // Check for risk events every 3 months
+  maxActiveRisks: 3,
+  riskDurationMonths: { min: 6, max: 18 },
+  effectDecayRate: 0.02, // Effects slightly decay over time without reinforcement
+  amplificationMultiplier: 1.5,
+  culturalFitThreshold: 0.4, // Below this, effects are significantly reduced
+  snaphotInterval: 3 // Take wellbeing snapshot every quarter
+};
+
+// Strategy comparison settings
+export const STRATEGY_SETTINGS = {
+  antifragile: {
+    name: 'Anti-Fragile Probes',
+    description: 'Small, iterative experiments that adapt based on feedback',
+    effectMultiplier: 0.7, // Start smaller
+    growthPotential: 1.5, // But can grow larger with amplification
+    failureCost: 0.3, // Failures have smaller impact
+    adaptability: 'high'
+  },
+  fragile: {
+    name: 'Blueprint Policy',
+    description: 'Traditional top-down policy implementation',
+    effectMultiplier: 1.0, // Full effect immediately
+    growthPotential: 1.0, // Fixed effect
+    failureCost: 1.0, // Full cost on failure
+    adaptability: 'low'
+  }
+};
+
+// Educational disclaimer
+export const DISCLAIMER = {
+  title: 'Educational Simulation Tool',
+  text: `This sandbox is designed for educational purposes to illustrate policy concepts. 
+While it uses real research data as a foundation, the outcomes are simplified simulations 
+and should not be used for actual policy decisions. Real-world policy impact depends on 
+countless factors not captured in any model.`,
+  sources: [
+    'World Health Organization (WHO) Reports',
+    'World Bank Data & Policy Research',
+    'UNICEF Country Statistics',
+    'Academic Research & Meta-analyses',
+    'Government Statistical Offices'
+  ]
+};
+
 // TopoJSON URL for world map
 export const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
 // For higher detail, use:
 // export const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json";
+

@@ -3,7 +3,8 @@
 import React, { useState, useCallback } from 'react';
 import { 
   Shield, AlertTriangle, TrendingUp, Activity, Heart,
-  ChevronRight, RotateCcw, Lightbulb, Target, Settings, RefreshCw
+  ChevronRight, RotateCcw, Lightbulb, Target, Settings, RefreshCw,
+  Info, X, Calendar, Clock, Download, History, Eye
 } from 'lucide-react';
 
 import { 
@@ -14,14 +15,22 @@ import {
   EmotionLegend,
   SentimentStream, 
   ProbeCard, 
-  LessonsPanel 
+  LessonsPanel,
+  EffectsPanel,
+  TimelineDisplay,
+  CycleHistory,
+  RiskEventLog,
+  ExportPanel
 } from './ui';
 
 import COUNTRIES from '../data/countries';
+import { DISCLAIMER, CONFIDENCE_LEVELS } from '../data/constants';
 import { useSimulation } from '../hooks/useSimulation';
 
 const GovernorSandbox = () => {
   const [activeCountry, setActiveCountry] = useState(COUNTRIES.Japan);
+  const [showDisclaimer, setShowDisclaimer] = useState(true);
+  const [activeTab, setActiveTab] = useState('monitor'); // 'monitor', 'effects', 'timeline', 'history', 'risks', 'export'
   
   const {
     cycleStage,
@@ -36,12 +45,29 @@ const GovernorSandbox = () => {
     lessons,
     cycleCount,
     simulationRunning,
+    // New enhanced state
+    currentMonth,
+    currentQuarter,
+    currentYear,
+    wellbeingHistory,
+    snapshots,
+    effectAttribution,
+    probeEffects,
+    activeRisks,
+    riskEventLog,
+    cycleHistory,
+    initialWellbeing,
+    wellbeingChanges,
+    // Actions
     advanceStage,
     launchFragile,
     launchAntiFragile,
     manageProbe,
     startNewCycle,
-    resetSimulation
+    resetSimulation,
+    clearCycleHistory,
+    exportCycleData,
+    exportFullHistory
   } = useSimulation(activeCountry);
 
   const selectCountry = useCallback((country) => {
@@ -49,8 +75,72 @@ const GovernorSandbox = () => {
     resetSimulation();
   }, [resetSimulation]);
 
+  // Tab button component
+  const TabButton = ({ id, icon: Icon, label, badge }) => (
+    <button
+      onClick={() => setActiveTab(id)}
+      className={`px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all ${
+        activeTab === id 
+          ? 'bg-indigo-500 text-white' 
+          : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+      }`}
+    >
+      <Icon size={14} />
+      {label}
+      {badge && (
+        <span className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+          activeTab === id ? 'bg-white/20' : 'bg-slate-700'
+        }`}>
+          {badge}
+        </span>
+      )}
+    </button>
+  );
+
   return (
     <div className="min-h-screen bg-slate-950 text-white">
+      {/* DISCLAIMER MODAL */}
+      {showDisclaimer && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-2xl border border-slate-700 max-w-lg w-full p-6 shadow-2xl">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-amber-500/20 rounded-xl flex items-center justify-center">
+                  <Info className="text-amber-400" size={20} />
+                </div>
+                <h2 className="text-lg font-bold">{DISCLAIMER.title}</h2>
+              </div>
+              <button 
+                onClick={() => setShowDisclaimer(false)}
+                className="text-slate-500 hover:text-white"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <p className="text-sm text-slate-300 mb-4 leading-relaxed">
+              {DISCLAIMER.text}
+            </p>
+            <div className="bg-slate-800/50 rounded-lg p-3 mb-4">
+              <div className="text-xs font-bold text-slate-500 uppercase mb-2">Data Sources</div>
+              <ul className="text-xs text-slate-400 space-y-1">
+                {DISCLAIMER.sources.map((source, idx) => (
+                  <li key={idx} className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                    {source}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <button
+              onClick={() => setShowDisclaimer(false)}
+              className="w-full bg-indigo-500 hover:bg-indigo-600 text-white py-3 rounded-xl font-bold transition-colors"
+            >
+              I Understand - Begin Exploration
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* HEADER */}
       <header className="bg-slate-900/90 backdrop-blur-sm border-b border-slate-800 sticky top-0 z-50">
         <div className="max-w-[1800px] mx-auto px-6 py-3">
@@ -68,6 +158,22 @@ const GovernorSandbox = () => {
             <CycleNavigator currentStage={cycleStage} completedStages={completedStages} />
             
             <div className="flex items-center gap-4">
+              {/* Timeline Info */}
+              {simulationRunning && (
+                <div className="flex items-center gap-2 text-center px-4 py-2 bg-slate-800 rounded-lg">
+                  <Calendar size={14} className="text-slate-500" />
+                  <div>
+                    <div className="text-[10px] text-slate-500 uppercase">Month</div>
+                    <div className="text-lg font-bold text-white">{currentMonth}</div>
+                  </div>
+                  <div className="w-px h-8 bg-slate-700" />
+                  <div>
+                    <div className="text-[10px] text-slate-500 uppercase">Q{currentQuarter}</div>
+                    <div className="text-lg font-bold text-indigo-400">Y{currentYear}</div>
+                  </div>
+                </div>
+              )}
+              
               <div className="text-center px-4 py-2 bg-slate-800 rounded-lg">
                 <div className="text-[10px] text-slate-500 uppercase">Cycle</div>
                 <div className="text-xl font-bold text-indigo-400">{cycleCount}</div>
@@ -84,6 +190,17 @@ const GovernorSandbox = () => {
                   {publicTrust}%
                 </div>
               </div>
+              
+              {/* Risk Indicator */}
+              {activeRisks && activeRisks.length > 0 && (
+                <div className="text-center px-4 py-2 bg-red-500/20 border border-red-500/30 rounded-lg">
+                  <div className="text-[10px] text-red-400 uppercase">Active Risks</div>
+                  <div className="text-xl font-bold text-red-400 flex items-center justify-center gap-1">
+                    <AlertTriangle size={14} />
+                    {activeRisks.length}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -109,14 +226,17 @@ const GovernorSandbox = () => {
           <div className="p-4">
             <p className="text-xs text-slate-400 italic mb-3">"{activeCountry.context}"</p>
             
-            <div className="grid grid-cols-6 gap-2 mb-4">
-              {Object.entries(activeCountry.dimensions).map(([key, value]) => (
-                <div key={key} className="text-center">
-                  <div className="text-[10px] text-slate-500">{key}</div>
-                  <div className="text-sm font-bold text-white">{value}</div>
-                </div>
-              ))}
-            </div>
+            {/* Context Factors */}
+            {activeCountry.contextFactors && (
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                {Object.entries(activeCountry.contextFactors).slice(0, 6).map(([key, value]) => (
+                  <div key={key} className="text-center bg-slate-800/50 rounded p-1.5">
+                    <div className="text-[8px] text-slate-500 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</div>
+                    <div className="text-sm font-bold text-white">{Math.round(value * 100)}%</div>
+                  </div>
+                ))}
+              </div>
+            )}
             
             {cycleStage === 'diagnose' && (
               <button 
@@ -234,13 +354,27 @@ const GovernorSandbox = () => {
                     <h3 className="text-lg font-bold group-hover:text-indigo-400">Anti-Fragile Probes</h3>
                     <p className="text-xs text-slate-500 mt-1 mb-3">Safe to fail, fast to learn</p>
                     <div className="bg-slate-800 rounded-lg p-3 mb-3">
-                      <div className="text-[10px] text-slate-500">PROBES</div>
-                      {activeCountry.probes.map(p => (
+                      <div className="text-[10px] text-slate-500">PROBES ({activeCountry.probes.length})</div>
+                      {activeCountry.probes.slice(0, 3).map(p => (
                         <div key={p.id} className="flex items-center gap-2 text-sm">
                           <span className={`w-2 h-2 rounded-full ${p.fit > 0.7 ? 'bg-green-500' : 'bg-amber-500'}`} />
                           {p.name}
+                          {p.confidence && (
+                            <span className={`text-[8px] px-1 rounded ${
+                              p.confidence === 'high' ? 'bg-green-500/20 text-green-400' :
+                              p.confidence === 'medium' ? 'bg-amber-500/20 text-amber-400' :
+                              'bg-red-500/20 text-red-400'
+                            }`}>
+                              {p.confidence.toUpperCase()}
+                            </span>
+                          )}
                         </div>
                       ))}
+                      {activeCountry.probes.length > 3 && (
+                        <div className="text-[10px] text-slate-500 mt-1">
+                          +{activeCountry.probes.length - 3} more probes
+                        </div>
+                      )}
                     </div>
                     <div className="text-[10px] text-green-400">Failures contained, successes scale</div>
                     <div className="mt-3 text-xs text-indigo-400 font-bold flex items-center gap-1">
@@ -251,7 +385,7 @@ const GovernorSandbox = () => {
               </div>
             )}
 
-            {/* MONITOR STAGE */}
+            {/* MONITOR STAGE - With Tab Navigation */}
             {cycleStage === 'monitor' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -267,31 +401,94 @@ const GovernorSandbox = () => {
                   </button>
                 </div>
                 
-                {strategy === 'antifragile' && (
-                  <div className="grid grid-cols-3 gap-3">
-                    {probes.map(probe => (
-                      <ProbeCard 
-                        key={probe.id} 
-                        probe={probe} 
-                        onManage={manageProbe} 
-                        showActions={false} 
-                      />
-                    ))}
-                  </div>
-                )}
+                {/* Tab Navigation */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <TabButton id="monitor" icon={Activity} label="Monitor" />
+                  <TabButton id="effects" icon={Eye} label="Effects" badge={Object.keys(effectAttribution).filter(k => effectAttribution[k]?.length > 0).length || null} />
+                  <TabButton id="timeline" icon={Calendar} label="Timeline" badge={`M${currentMonth}`} />
+                  <TabButton id="risks" icon={AlertTriangle} label="Risks" badge={activeRisks?.length || null} />
+                  <TabButton id="history" icon={History} label="History" badge={cycleHistory?.length || null} />
+                  <TabButton id="export" icon={Download} label="Export" />
+                </div>
                 
-                {strategy === 'fragile' && (
-                  <div className={`rounded-xl p-4 border-2 ${wellbeingScore < 40 ? 'border-red-500 bg-red-500/10' : 'border-slate-700 bg-slate-800'}`}>
-                    <div className="flex items-center gap-3">
-                      <span className="text-4xl">🏗️</span>
-                      <div>
-                        <div className="font-bold">{activeCountry.blueprint.name}</div>
-                        <div className={`text-sm ${wellbeingScore < 40 ? 'text-red-400' : 'text-slate-400'}`}>
-                          {wellbeingScore < 40 ? '⚠️ CRITICAL FAILURE' : 'Under stress'}
+                {/* Tab Content */}
+                {activeTab === 'monitor' && (
+                  <>
+                    {strategy === 'antifragile' && (
+                      <div className="grid grid-cols-2 gap-3">
+                        {probes.map(probe => (
+                          <ProbeCard 
+                            key={probe.id} 
+                            probe={probe} 
+                            onManage={manageProbe} 
+                            showActions={false}
+                            currentMonth={currentMonth}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    
+                    {strategy === 'fragile' && (
+                      <div className={`rounded-xl p-4 border-2 ${wellbeingScore < 40 ? 'border-red-500 bg-red-500/10' : 'border-slate-700 bg-slate-800'}`}>
+                        <div className="flex items-center gap-3">
+                          <span className="text-4xl">🏗️</span>
+                          <div>
+                            <div className="font-bold">{activeCountry.blueprint.name}</div>
+                            <div className={`text-sm ${wellbeingScore < 40 ? 'text-red-400' : 'text-slate-400'}`}>
+                              {wellbeingScore < 40 ? '⚠️ CRITICAL FAILURE' : 'Under stress'}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
+                    )}
+                  </>
+                )}
+                
+                {activeTab === 'effects' && (
+                  <EffectsPanel 
+                    effectAttribution={effectAttribution}
+                    probeEffects={probeEffects}
+                    activeRisks={activeRisks}
+                    wellbeingChanges={wellbeingChanges}
+                  />
+                )}
+                
+                {activeTab === 'timeline' && (
+                  <TimelineDisplay 
+                    currentMonth={currentMonth}
+                    currentQuarter={currentQuarter}
+                    currentYear={currentYear}
+                    wellbeingHistory={wellbeingHistory}
+                    snapshots={snapshots}
+                    initialWellbeing={initialWellbeing}
+                    wellbeing={wellbeing}
+                    wellbeingScore={wellbeingScore}
+                  />
+                )}
+                
+                {activeTab === 'risks' && (
+                  <RiskEventLog 
+                    activeRisks={activeRisks}
+                    riskEventLog={riskEventLog}
+                    currentCountry={activeCountry}
+                  />
+                )}
+                
+                {activeTab === 'history' && (
+                  <CycleHistory 
+                    cycleHistory={cycleHistory}
+                    onClearHistory={clearCycleHistory}
+                    currentCountry={activeCountry}
+                  />
+                )}
+                
+                {activeTab === 'export' && (
+                  <ExportPanel 
+                    exportCycleData={exportCycleData}
+                    exportFullHistory={exportFullHistory}
+                    currentCountry={activeCountry}
+                    cycleHistory={cycleHistory}
+                  />
                 )}
               </div>
             )}
@@ -305,13 +502,14 @@ const GovernorSandbox = () => {
                 </h2>
                 
                 {strategy === 'antifragile' && (
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-3">
                     {probes.map(probe => (
                       <ProbeCard 
                         key={probe.id} 
                         probe={probe} 
                         onManage={manageProbe} 
-                        showActions={true} 
+                        showActions={true}
+                        currentMonth={currentMonth}
                       />
                     ))}
                   </div>
@@ -328,6 +526,29 @@ const GovernorSandbox = () => {
                     </p>
                   </div>
                 )}
+                
+                {/* Cycle Summary */}
+                <div className="bg-slate-900 rounded-xl border border-slate-800 p-4">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase mb-3">Cycle Summary</h3>
+                  <div className="grid grid-cols-4 gap-3">
+                    <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                      <div className="text-2xl font-bold text-white">{currentMonth}</div>
+                      <div className="text-[10px] text-slate-500">Total Months</div>
+                    </div>
+                    <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                      <div className="text-2xl font-bold text-indigo-400">{probes.filter(p => p.status === 'amplified').length}</div>
+                      <div className="text-[10px] text-slate-500">Amplified</div>
+                    </div>
+                    <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                      <div className="text-2xl font-bold text-slate-400">{probes.filter(p => p.status === 'retired').length}</div>
+                      <div className="text-[10px] text-slate-500">Retired</div>
+                    </div>
+                    <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                      <div className="text-2xl font-bold text-red-400">{riskEventLog?.length || 0}</div>
+                      <div className="text-[10px] text-slate-500">Risk Events</div>
+                    </div>
+                  </div>
+                </div>
                 
                 <button 
                   onClick={startNewCycle} 
@@ -361,6 +582,35 @@ const GovernorSandbox = () => {
                   </h3>
                   <SentimentStream messages={vllMessages} />
                 </div>
+                
+                {/* Quick Stats */}
+                <div className="bg-slate-900 rounded-xl border border-slate-800 p-4">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
+                    <Clock size={12} /> Simulation Stats
+                  </h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Current Month</span>
+                      <span className="font-bold text-white">{currentMonth}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Active Probes</span>
+                      <span className="font-bold text-blue-400">{probes.filter(p => p.status === 'active').length}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Amplified</span>
+                      <span className="font-bold text-green-400">{probes.filter(p => p.status === 'amplified').length}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Active Risks</span>
+                      <span className="font-bold text-red-400">{activeRisks?.length || 0}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Snapshots</span>
+                      <span className="font-bold text-slate-300">{snapshots?.length || 0}</span>
+                    </div>
+                  </div>
+                </div>
               </>
             )}
             
@@ -373,6 +623,21 @@ const GovernorSandbox = () => {
           </div>
         </div>
       </main>
+      
+      {/* Footer with Disclaimer Link */}
+      <footer className="border-t border-slate-800 py-4 mt-6">
+        <div className="max-w-[1800px] mx-auto px-6 flex items-center justify-between">
+          <p className="text-xs text-slate-600">
+            Anti-Fragile Well-Being Governor's Sandbox • Educational Tool
+          </p>
+          <button
+            onClick={() => setShowDisclaimer(true)}
+            className="text-xs text-slate-500 hover:text-indigo-400 flex items-center gap-1"
+          >
+            <Info size={12} /> About This Tool
+          </button>
+        </div>
+      </footer>
     </div>
   );
 };
