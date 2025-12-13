@@ -64,16 +64,16 @@ const GovernorSandbox = () => {
     launchAntiFragile,
     manageProbe,
     startNewCycle,
-    resetSimulation,
     clearCycleHistory,
     exportCycleData,
     exportFullHistory
   } = useSimulation(activeCountry);
 
+  // Country selection - just update the active country
+  // The useSimulation hook handles state save/restore automatically
   const selectCountry = useCallback((country) => {
     setActiveCountry(country);
-    resetSimulation();
-  }, [resetSimulation]);
+  }, []);
 
   // Tab button component
   const TabButton = ({ id, icon: Icon, label, badge }) => (

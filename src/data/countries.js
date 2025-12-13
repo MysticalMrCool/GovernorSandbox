@@ -723,14 +723,14 @@ export const COUNTRIES = {
         culturalFit: "Community-embedded workers build trust; mobile approach adapts to insecurity.",
         affectedDomains: ['health', 'psychological', 'social', 'economic', 'civic'],
         effectWeights: {
-          health: 2.5,
-          psychological: 1.5,
-          social: 1.5,
-          economic: 0.5,
-          civic: 0.5,
+          health: 3.5,      // Boosted - critical service in conflict
+          psychological: 2.0,
+          social: 2.0,
+          economic: 1.0,
+          civic: 1.0,
           environmental: 0
         },
-        lagMonths: { min: 3, max: 6 },
+        lagMonths: { min: 2, max: 4 }, // Faster deployment for mobile clinics
         lesson: "Community health workers can maintain services where formal systems cannot reach."
       },
       {
@@ -746,11 +746,11 @@ export const COUNTRIES = {
         culturalFit: "Universal approach appeals to collectivist values; implementation challenged by conflict.",
         affectedDomains: ['health', 'psychological', 'social', 'economic', 'civic'],
         effectWeights: {
-          health: 2.0,
-          psychological: 1.0,
-          social: 1.0,
-          economic: -0.5,  // Implementation cost
-          civic: 1.0,
+          health: 2.5,
+          psychological: 1.5,
+          social: 1.5,
+          economic: 0,     // Neutral - cost balanced by coverage
+          civic: 1.5,
           environmental: 0
         },
         lagMonths: { min: 6, max: 12 },
@@ -769,11 +769,11 @@ export const COUNTRIES = {
         culturalFit: "Child health universally valued; vaccination culturally accepted.",
         affectedDomains: ['health', 'psychological', 'social', 'economic', 'civic'],
         effectWeights: {
-          health: 3.0,
-          psychological: 0.5,
-          social: 0.5,
-          economic: 1.0,  // Reduced disease burden
-          civic: 0.5,
+          health: 4.0,      // Strong evidence for impact
+          psychological: 1.0,
+          social: 1.0,
+          economic: 1.5,    // Reduced disease burden helps economy
+          civic: 1.0,
           environmental: 0
         },
         lagMonths: { min: 3, max: 6 },
@@ -792,11 +792,11 @@ export const COUNTRIES = {
         culturalFit: "Challenging given gender norms but essential. Works best through women's groups.",
         affectedDomains: ['health', 'psychological', 'social', 'economic', 'civic'],
         effectWeights: {
-          health: 1.5,
-          psychological: 2.5,
-          social: 2.0,
-          economic: 0.5,
-          civic: 1.0,
+          health: 2.0,
+          psychological: 3.5,  // Critical for trauma healing
+          social: 2.5,
+          economic: 1.0,
+          civic: 1.5,
           environmental: 0
         },
         lagMonths: { min: 3, max: 6 },
@@ -815,14 +815,14 @@ export const COUNTRIES = {
         culturalFit: "Education highly valued; community protection of schools possible when elders engaged.",
         affectedDomains: ['health', 'psychological', 'social', 'economic', 'civic'],
         effectWeights: {
-          health: 0.5,
-          psychological: 2.0,
-          social: 2.5,
-          economic: 1.0,
-          civic: 1.5,
+          health: 1.0,
+          psychological: 2.5,
+          social: 3.0,
+          economic: 1.5,
+          civic: 2.0,
           environmental: 0
         },
-        lagMonths: { min: 6, max: 12 },
+        lagMonths: { min: 4, max: 9 },
         lesson: "Education can continue in conflict with community protection and flexible approaches."
       },
       {
@@ -838,14 +838,14 @@ export const COUNTRIES = {
         culturalFit: "Universal need. Community-based management builds ownership.",
         affectedDomains: ['health', 'psychological', 'social', 'economic', 'civic', 'environmental'],
         effectWeights: {
-          health: 2.5,
-          psychological: 1.0,
-          social: 1.5,
-          economic: 0.5,
-          civic: 0.5,
-          environmental: 2.0
+          health: 3.5,      // Fast, proven impact
+          psychological: 1.5,
+          social: 2.0,
+          economic: 1.0,
+          civic: 1.0,
+          environmental: 2.5
         },
-        lagMonths: { min: 1, max: 3 },
+        lagMonths: { min: 1, max: 3 }, // WASH shows fast results
         lesson: "WASH infrastructure shows fastest impact on community health of any intervention."
       },
       {
@@ -874,36 +874,37 @@ export const COUNTRIES = {
     ],
     
     // HIGH FREQUENCY risk events for conflict context
+    // Note: Probabilities are annual, modifiers are per-month impact (divided by 3 for quarterly effect)
     riskEvents: [
       {
         id: 'conflict_escalation',
         name: 'Conflict Escalation',
         description: 'Increase in armed violence disrupting all services and displacing populations.',
-        probability: 0.50,
-        affectedDomains: ['health', 'psychological', 'social', 'economic', 'civic', 'environmental'],
-        modifier: -2.5,  // Severe impact
+        probability: 0.30, // Reduced from 0.50 - still high but not certain
+        affectedDomains: ['health', 'psychological', 'social', 'economic', 'civic'],
+        modifier: -1.5,  // Reduced from -2.5
         isPersistent: false,
         duration: 6,
-        note: 'Can cause -2.0 to -3.0 depending on severity'
+        note: 'Severe but less frequent than access constraints'
       },
       {
         id: 'access_constraints',
         name: 'Access Constraints/Lockdowns',
         description: 'Security situations preventing humanitarian access to affected populations.',
-        probability: 0.70,
-        affectedDomains: ['health', 'psychological', 'social', 'economic', 'civic', 'environmental'],
-        modifier: -1.5,
+        probability: 0.40, // Reduced from 0.70
+        affectedDomains: ['health', 'social'],
+        modifier: -0.8, // Reduced from -1.5
         isPersistent: false,
         duration: 3,
-        note: 'Reduces effectiveness of all interventions by limiting reach'
+        note: 'Reduces effectiveness of interventions by limiting reach'
       },
       {
         id: 'displacement_surge',
         name: 'Displacement Surge',
         description: 'New wave of internal displacement straining services and host communities.',
-        probability: 0.40,
-        affectedDomains: ['social', 'health'],
-        modifier: -1.0,
+        probability: 0.25, // Reduced from 0.40
+        affectedDomains: ['social', 'psychological'],
+        modifier: -0.5, // Reduced from -1.0
         isPersistent: false,
         duration: 6
       },
@@ -911,9 +912,9 @@ export const COUNTRIES = {
         id: 'funding_discontinuity',
         name: 'Funding Discontinuity',
         description: 'International funding gaps or delays affecting program continuity.',
-        probability: 0.60,
-        affectedDomains: ['health', 'psychological', 'social', 'economic', 'civic', 'environmental'],
-        modifier: -1.0,
+        probability: 0.35, // Reduced from 0.60
+        affectedDomains: ['health', 'economic'],
+        modifier: -0.5, // Reduced from -1.0
         isPersistent: false,
         duration: 6,
         note: 'Only 33% of health response currently funded'
@@ -922,9 +923,9 @@ export const COUNTRIES = {
         id: 'ied_attack',
         name: 'IED/Attack Event',
         description: 'Direct attack on health facilities, schools, or humanitarian workers.',
-        probability: 0.25,
+        probability: 0.15, // Reduced from 0.25
         affectedDomains: ['health', 'psychological'],
-        modifier: -2.0,
+        modifier: -1.0, // Reduced from -2.0
         isPersistent: false,
         duration: 3
       }

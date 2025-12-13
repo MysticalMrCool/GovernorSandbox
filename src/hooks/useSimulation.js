@@ -1,7 +1,7 @@
 // src/hooks/useSimulation.js
 // Enhanced simulation hook with timeline, effects tracking, risk events, and cycle memory
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import { EMOTIONS } from '../data/constants';
 import {
   calculateCulturalFit,
@@ -17,13 +17,18 @@ import {
   formatExportData
 } from '../data/simulationEngine';
 
-// LocalStorage keys
+// LocalStorage keys - only used for explicit exports, not auto-persistence
 const STORAGE_KEYS = {
-  CYCLE_HISTORY: 'governor_sandbox_cycle_history',
-  CURRENT_CYCLE: 'governor_sandbox_current_cycle'
+  CYCLE_HISTORY: 'governor_sandbox_cycle_history'
 };
 
 export const useSimulation = (activeCountry) => {
+  // In-session country state memory (not persisted to localStorage)
+  // This remembers country states during the session but resets on page refresh
+  const countryStatesRef = useRef({});
+  const previousCountryRef = useRef(null); // Start as null so first render doesn't save empty state
+  const isFirstRender = useRef(true);
+
   // Core state
   const [cycleStage, setCycleStage] = useState('diagnose');
   const [completedStages, setCompletedStages] = useState([]);
@@ -54,7 +59,7 @@ export const useSimulation = (activeCountry) => {
   const [snapshots, setSnapshots] = useState([]);
   const [wellbeingHistory, setWellbeingHistory] = useState([]);
   
-  // Cycle memory
+  // Cycle memory (in-session only, not persisted)
   const [cycleHistory, setCycleHistory] = useState([]);
   
   // Simulation speed control (ms per month)
@@ -64,19 +69,113 @@ export const useSimulation = (activeCountry) => {
   const wellbeingScore = calculateWellbeingScore(wellbeing);
   const publicTrust = calculatePublicTrust(wellbeing);
 
-  // Load cycle history from localStorage on mount
-  useEffect(() => {
-    try {
-      const savedHistory = localStorage.getItem(STORAGE_KEYS.CYCLE_HISTORY);
-      if (savedHistory) {
-        setCycleHistory(JSON.parse(savedHistory));
-      }
-    } catch (e) {
-      console.warn('Failed to load cycle history:', e);
-    }
-  }, []);
+  // Keep a ref to current state for saving on country switch - use useLayoutEffect for synchronous update
+  const currentStateRef = useRef({});
+  useLayoutEffect(() => {
+    currentStateRef.current = {
+      cycleStage,
+      completedStages,
+      strategy,
+      wellbeing,
+      initialWellbeing,
+      wellbeingChanges,
+      probes,
+      vllMessages,
+      emotionHistory,
+      lessons,
+      cycleCount,
+      currentMonth,
+      probeStartMonths,
+      effectAttribution,
+      probeEffects,
+      activeRisks,
+      riskEventLog,
+      snapshots,
+      wellbeingHistory,
+      cycleHistory
+    };
+  }, [cycleStage, completedStages, strategy, wellbeing, initialWellbeing, wellbeingChanges, 
+      probes, vllMessages, emotionHistory, lessons, cycleCount, currentMonth, probeStartMonths,
+      effectAttribution, probeEffects, activeRisks, riskEventLog, snapshots, wellbeingHistory, cycleHistory]);
 
-  // Save cycle history to localStorage
+  // Handle country changes - save previous, restore or reset new
+  useEffect(() => {
+    const prevCountryId = previousCountryRef.current;
+    const newCountryId = activeCountry.id;
+    
+    // On first render, just set the previous country ref
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      previousCountryRef.current = newCountryId;
+      return;
+    }
+    
+    // If same country, do nothing
+    if (prevCountryId === newCountryId) return;
+    
+    // Save current state for previous country before switching
+    if (prevCountryId && currentStateRef.current) {
+      // Deep copy to avoid reference issues
+      countryStatesRef.current[prevCountryId] = JSON.parse(JSON.stringify(currentStateRef.current));
+    }
+    
+    // Always stop simulation when switching countries
+    setSimulationRunning(false);
+    
+    // Check if we have saved state for new country
+    const savedState = countryStatesRef.current[newCountryId];
+    
+    if (savedState) {
+      // Restore saved state - use setTimeout to ensure state updates don't conflict
+      setCycleStage(savedState.cycleStage);
+      setCompletedStages(savedState.completedStages);
+      setStrategy(savedState.strategy);
+      setWellbeing(savedState.wellbeing);
+      setInitialWellbeing(savedState.initialWellbeing);
+      setWellbeingChanges(savedState.wellbeingChanges);
+      setProbes(savedState.probes);
+      setVllMessages(savedState.vllMessages);
+      setEmotionHistory(savedState.emotionHistory);
+      setLessons(savedState.lessons);
+      setCycleCount(savedState.cycleCount);
+      setCurrentMonth(savedState.currentMonth);
+      setProbeStartMonths(savedState.probeStartMonths);
+      setEffectAttribution(savedState.effectAttribution);
+      setProbeEffects(savedState.probeEffects);
+      setActiveRisks(savedState.activeRisks);
+      setRiskEventLog(savedState.riskEventLog);
+      setSnapshots(savedState.snapshots);
+      setWellbeingHistory(savedState.wellbeingHistory);
+      setCycleHistory(savedState.cycleHistory);
+    } else {
+      // Fresh start for new country
+      setCycleStage('diagnose');
+      setCompletedStages([]);
+      setStrategy(null);
+      setWellbeing({ ...activeCountry.wellbeing });
+      setInitialWellbeing({ ...activeCountry.wellbeing });
+      setWellbeingChanges({});
+      setProbes([]);
+      setVllMessages([]);
+      setEmotionHistory([]);
+      setLessons([]);
+      setCycleCount(1);
+      setCurrentMonth(0);
+      setProbeStartMonths({});
+      setEffectAttribution({});
+      setProbeEffects([]);
+      setActiveRisks([]);
+      setRiskEventLog([]);
+      setSnapshots([]);
+      setWellbeingHistory([]);
+      setCycleHistory([]);
+    }
+    
+    // Update previous country ref
+    previousCountryRef.current = newCountryId;
+  }, [activeCountry.id, activeCountry.wellbeing]); // Depend on country ID and wellbeing for fresh starts
+
+  // Save cycle history (only when explicitly exported)
   const saveCycleHistory = useCallback((history) => {
     try {
       localStorage.setItem(STORAGE_KEYS.CYCLE_HISTORY, JSON.stringify(history));
@@ -84,30 +183,6 @@ export const useSimulation = (activeCountry) => {
       console.warn('Failed to save cycle history:', e);
     }
   }, []);
-
-  // Reset when country changes
-  useEffect(() => {
-    setCycleStage('diagnose');
-    setCompletedStages([]);
-    setStrategy(null);
-    setWellbeing({ ...activeCountry.wellbeing });
-    setInitialWellbeing({ ...activeCountry.wellbeing });
-    setWellbeingChanges({});
-    setProbes([]);
-    setVllMessages([]);
-    setEmotionHistory([]);
-    setLessons([]);
-    setCycleCount(1);
-    setSimulationRunning(false);
-    setCurrentMonth(0);
-    setProbeStartMonths({});
-    setEffectAttribution({});
-    setProbeEffects([]);
-    setActiveRisks([]);
-    setRiskEventLog([]);
-    setSnapshots([]);
-    setWellbeingHistory([]);
-  }, [activeCountry]);
 
   // Generate emotion data point based on current state
   const generateEmotionPoint = useCallback(() => {
@@ -517,7 +592,8 @@ export const useSimulation = (activeCountry) => {
       completeCycle();
     }
     
-    setCycleCount(prev => prev + 1);
+    const newCycleCount = cycleCount + 1;
+    setCycleCount(newCycleCount);
     setCycleStage('diagnose');
     setCompletedStages([]);
     setStrategy(null);
@@ -529,17 +605,28 @@ export const useSimulation = (activeCountry) => {
     setActiveRisks([]);
     setRiskEventLog([]);
     setSnapshots([]);
-    setWellbeingHistory([]);
-    // Keep wellbeing, lessons, and some history
+    
+    // IMPORTANT: Carry over wellbeing - set current as new baseline for next cycle
+    setInitialWellbeing({ ...wellbeing });
+    setWellbeingChanges({});
+    
+    // Start new wellbeing history from current state
+    setWellbeingHistory([{
+      month: 0,
+      score: Math.round(Object.values(wellbeing).reduce((a, b) => a + b, 0) / 6),
+      ...wellbeing
+    }]);
+    
+    // Keep lessons accumulated across cycles
     setVllMessages(prev => [{
       timestamp: "SYSTEM",
       topic: "CYCLE",
-      text: `Starting Cycle ${cycleCount + 1}. Previous lessons retained.`,
+      text: `Starting Cycle ${newCycleCount}. Wellbeing carried forward. Previous lessons retained.`,
       sentiment: 0
     }, ...prev.slice(0, 10)]);
-  }, [cycleCount, strategy, completeCycle]);
+  }, [cycleCount, strategy, completeCycle, wellbeing]);
 
-  // Reset simulation (for country change)
+  // Reset simulation (for country change or manual reset)
   const resetSimulation = useCallback(() => {
     setCycleStage('diagnose');
     setCompletedStages([]);

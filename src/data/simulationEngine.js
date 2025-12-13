@@ -9,26 +9,29 @@
  */
 export const calculateCulturalFit = (probe, contextFactors) => {
   const {
-    institutionalTrust,
-    culturalOpenness,
-    implementationCapacity,
-    conflictLevel
-  } = contextFactors;
+    institutionalTrust = 0.5,
+    culturalOpenness = 0.5,
+    implementationCapacity = 0.5,
+    conflictLevel = 0
+  } = contextFactors || {};
   
   // Base fit from research
   const baseFit = probe.baseFit || probe.fit || 0.5;
   
-  // Apply context modifiers
-  // Cultural fit = base_fit × trust × openness × capacity × (1 - conflict)
-  const conflictPenalty = 1 - (conflictLevel * 0.8); // Conflict reduces effectiveness up to 80%
+  // Apply context modifiers more gently
+  // We want low trust/capacity to reduce effectiveness, but not destroy it
+  // Using sqrt to dampen the penalty effect
+  const trustFactor = 0.5 + (institutionalTrust * 0.5);  // Range: 0.5 - 1.0
+  const capacityFactor = 0.5 + (implementationCapacity * 0.5);  // Range: 0.5 - 1.0
+  const opennessFactor = 0.7 + (culturalOpenness * 0.3);  // Range: 0.7 - 1.0
   
-  const effectiveFit = baseFit * 
-    Math.pow(institutionalTrust, 0.3) *  // Trust has moderate influence
-    Math.pow(culturalOpenness, 0.2) *     // Openness has smaller influence
-    Math.pow(implementationCapacity, 0.4) * // Implementation capacity is important
-    conflictPenalty;
+  // Conflict penalty is more nuanced - high conflict reduces effectiveness but doesn't eliminate it
+  // Humanitarian interventions can still work in conflict zones
+  const conflictPenalty = 1 - (conflictLevel * 0.4); // Max 40% reduction for conflict
   
-  return Math.min(1, Math.max(0, effectiveFit));
+  const effectiveFit = baseFit * trustFactor * capacityFactor * opennessFactor * conflictPenalty;
+  
+  return Math.min(1, Math.max(0.1, effectiveFit)); // Minimum 10% effectiveness
 };
 
 /**
@@ -64,6 +67,11 @@ export const calculateProbeEffect = (probe, contextFactors, currentMonth, probeS
   // Apply variance (±20%)
   const variance = 0.8 + (Math.random() * 0.4);
   
+  // MONTHLY EFFECT SCALE: Scale down effects to realistic monthly changes
+  // Real-world policy effects are gradual - typically 0.1-0.5 points per month per probe
+  // This prevents unrealistic 10+ point jumps per month
+  const monthlyScale = 0.15;
+  
   // Calculate per-domain effects
   const domainEffects = {};
   const effectWeights = probe.effectWeights || {};
@@ -71,7 +79,7 @@ export const calculateProbeEffect = (probe, contextFactors, currentMonth, probeS
   Object.keys(effectWeights).forEach(domain => {
     const baseWeight = effectWeights[domain];
     if (baseWeight !== 0) {
-      const effect = baseWeight * culturalFit * effectMultiplier * amplificationBonus * variance;
+      const effect = baseWeight * culturalFit * effectMultiplier * amplificationBonus * variance * monthlyScale;
       domainEffects[domain] = {
         value: Math.round(effect * 100) / 100,
         baseWeight,
@@ -163,13 +171,16 @@ export const calculateRiskImpacts = (activeRisks) => {
     environmental: 0
   };
   
+  // Monthly risk scale - risks apply smaller monthly impact
+  const monthlyRiskScale = 0.25;
+  
   activeRisks.forEach(risk => {
     risk.affectedDomains.forEach(domain => {
       // Handle variance risks (like India's state implementation)
       if (risk.note?.includes('±') || risk.id === 'state_implementation_variance') {
-        impacts[domain] += (Math.random() - 0.5) * 2 * Math.abs(risk.modifier);
+        impacts[domain] += (Math.random() - 0.5) * 2 * Math.abs(risk.modifier) * monthlyRiskScale;
       } else {
-        impacts[domain] += risk.modifier;
+        impacts[domain] += risk.modifier * monthlyRiskScale;
       }
     });
   });
@@ -360,14 +371,17 @@ export const calculateFragileEffect = (blueprint, contextFactors) => {
   // Fragile approach: high variance, often negative
   const isSuccess = Math.random() < (baseFit * conflictPenalty);
   
+  // Monthly scale for fragile effects - still volatile but not extreme
+  const monthlyScale = 0.3;
+  
   const effects = {};
   const domains = ['health', 'psychological', 'social', 'civic', 'economic', 'environmental'];
   
   domains.forEach(domain => {
     if (isSuccess) {
-      effects[domain] = Math.random() < 0.3 ? 1 : 0;
+      effects[domain] = (Math.random() < 0.3 ? 1 : 0) * monthlyScale;
     } else {
-      effects[domain] = Math.random() < 0.5 ? -2 : -1;
+      effects[domain] = (Math.random() < 0.5 ? -2 : -1) * monthlyScale;
     }
   });
   
