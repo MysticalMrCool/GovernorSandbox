@@ -37,11 +37,16 @@ const ProbeCard = ({
 
   // Calculate lag progress
   const getLagProgress = () => {
-    if (!probe.lagMonths || !probe.startMonth) return null;
-    const elapsed = currentMonth - probe.startMonth;
-    const progress = Math.min(100, Math.round((elapsed / probe.lagMonths) * 100));
-    const isPending = elapsed < probe.lagMonths;
-    return { progress, isPending, monthsRemaining: Math.max(0, probe.lagMonths - elapsed) };
+    if (!probe.lagMonths) return null;
+    // lagMonths can be an object {min, max} or a number
+    const lagMonthsValue = typeof probe.lagMonths === 'object' 
+      ? probe.lagMonths.min 
+      : probe.lagMonths;
+    const startMonth = probe.startMonth || 0;
+    const elapsed = currentMonth - startMonth;
+    const progress = Math.min(100, Math.round((elapsed / lagMonthsValue) * 100));
+    const isPending = elapsed < lagMonthsValue;
+    return { progress, isPending, monthsRemaining: Math.max(0, lagMonthsValue - elapsed) };
   };
 
   const lagInfo = getLagProgress();
@@ -271,7 +276,7 @@ const ProbeCard = ({
                       }`}
                     >
                       <span className="flex items-center gap-1 text-slate-300">
-                        <Icon size={10} style={{ color: domainInfo.color }} />
+                        {Icon && <Icon size={10} style={{ color: domainInfo.color }} />}
                         {domainInfo.name}
                       </span>
                       <span className={`font-bold ${
@@ -293,7 +298,9 @@ const ProbeCard = ({
           {probe.lagMonths && (
             <div className="text-[9px] text-slate-500 flex items-center gap-1">
               <Clock size={10} />
-              Implementation lag: {probe.lagMonths} months
+              Implementation lag: {typeof probe.lagMonths === 'object' 
+                ? `${probe.lagMonths.min}-${probe.lagMonths.max}` 
+                : probe.lagMonths} months
               <span className="text-slate-600">
                 (effects begin after this period)
               </span>
